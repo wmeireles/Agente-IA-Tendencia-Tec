@@ -1,0 +1,31 @@
+# === Segurança: NUNCA subir credenciais ===
+.env
+.env.local
+*.local
+
+# === Ambiente Python ===
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# === Artefatos gerados ===
+output/
+*.mp3
+*.txt
+
+# === IDE / Sistema ===
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
