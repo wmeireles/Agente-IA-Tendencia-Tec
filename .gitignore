@@ -23,6 +23,8 @@ htmlcov/
 output/
 *.mp3
 *.txt
+!requirements.txt
+!requirements-dev.txt
 
 # === IDE / Sistema ===
 .vscode/
