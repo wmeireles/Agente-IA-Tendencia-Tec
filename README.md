@@ -1,175 +1,246 @@
-# 🎙️ Tech Trends Audio Digest Agent (Notícias + Ensino + 50 Fontes Curadas)
+<div align="center">
 
-Um agente de Inteligência Artificial modular em Python que busca diariamente notícias e análises de **50 das melhores fontes técnicas do mundo**, gera um resumo roteirizado e educacional via **Groq / DeepSeek**, e sintetiza um arquivo de áudio MP3 de alta qualidade utilizando **Microsoft Edge TTS com SSML** (e fallback para **gTTS**).
+# 🎙️ Tech Trends Audio Digest
 
----
+**Um podcast diário em áudio, gerado por IA, das melhores fontes de tecnologia do mundo — entregue direto no seu Discord.**
 
-## 🌟 Principais Destaques
+`Python` · `Groq/DeepSeek` · `Edge-TTS` · `GitHub Actions` · `Discord Webhook`
 
-- 🌐 **50 Fontes Curadas de Elite**: Coleta automática dividida em 5 categorias estratégicas:
-  1. **Blogs Pessoais & Opinião Forte**: Fabio Akita (AkitaOnRails), Martin Fowler, Gergely Orosz (The Pragmatic Engineer), Julia Evans, Dan Abramov (Overreacted), Joel Spolsky, Gregor Hohpe, Chip Huyen, Lilian Weng, Alberto Romero.
-  2. **Inteligência Artificial, LLMs & ML**: Hugging Face, Latent Space, OpenAI, Google DeepMind, LangChain, Towards Data Science, LlamaIndex, AI Snake Oil, Jay Alammar, MarkTechPost.
-  3. **Engenharia de Big Techs**: Netflix TechBlog, GitHub Engineering, Cloudflare, Uber, Discord, Spotify, Stripe, AWS Architecture, Canva, DoorDash.
-  4. **Portais & Arquitetura de Software**: InfoQ, Better Stack Community, Architecture Notes, The New Stack, DZone, HackerNoon, TLDR Tech, Dev.to, Hashnode, Red Hat.
-  5. **Canais e Conteúdo em Português**: TabNews, Manual do Usuário (Rodrigo Ghedin), Filipe Deschamps, BrazilJS, Blog do Diego Eis, iMasters, Zup Innovation, Ezequiel Lanza, Pagar.me/Stone.
-- 🎓 **Pílula de Conhecimento Tech (Ensino)**: Além de informar o giro de notícias, o agente seleciona um conceito importante e ensina ao ouvinte com uma analogia simples da vida real.
-- 🎙️ **Voz Ultra-Humanizada**: Pausas de respiração e cadência ajustada no Edge-TTS.
-- ⏰ **Execução Diária Automatizada**: Suporte a daemon interno (`--daily`) e agendamento nativo no Windows (`schedule_daily.ps1`).
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![CI](https://img.shields.io/badge/CI-lint%20%2B%20test-green)](.github/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.1.0-ff69b4)](src/__init__.py)
+
+</div>
 
 ---
 
-## 📂 Estrutura do Projeto
+## 📖 Visão Geral
+
+O **Tech Trends Audio Digest** é um agente de IA residente que, todos os dias, monitora **50 das fontes mais relevantes de tecnologia do planeta**, transforma as principais novidades em uma **narrativa jornalística educacional** e a sintetiza em um **arquivo de áudio MP3** com voz humanizada — pronto para ser escutado no trajeto de manhã.
+
+O diferencial vai além de *informar*: a cada episódio o agente **ensina um conceito técnico** usando analogias simples, conectando o que está acontecendo no mercado com o *porquê* de isso importar para engenheiros, arquitetos e gestores.
+
+O resultado final pode ser enviado automaticamente para qualquer canal do **Discord** via webhook, totalmente **sem bot, sem servidor e sem custo de infraestrutura** — a rotina roda de graça na nuvem via **GitHub Actions**.
+
+---
+
+## ✨ Recursos
+
+- 🌐 **50 fontes curadas de elite**, distribuídas em 5 categorias estratégicas (blogs de opinião, IA/LLMs, engenharia de big techs, portais de arquitetura e conteúdo em português).
+- 🎓 **Pílula de conhecimento**: o roteiro explica o *conceito* por trás de cada notícia, não só o título.
+- 🎙️ **Voz ultra-humanizada**: cadência e pausas de respiração estilo podcast (Edge-TTS), com fallback automático para gTTS.
+- 📨 **Entrega no Discord**: envio do MP3 + resumo via webhook, reproduzível inline no canal.
+- ⏰ **Rotina diária automática**: agendada via GitHub Actions, sem depender do seu computador.
+- 🧪 **Qualidade de software**: testes unitários (pytest) e lint (ruff) com CI em múltiplas versões de Python.
+- 🏷️ **Versionamento semântico** (SemVer) e Conventional Commits.
+
+---
+
+## ⚙️ Como Funciona
+
+O agente é um pipeline de 3 etapas, cada uma implementada em um módulo independente:
 
 ```
-tendencias_tecnologia/
+┌─────────────┐      ┌──────────────────┐      ┌──────────────┐      ┌─────────────┐
+│  1. Coleta   │ ──▶ │  2. Roteirização  │ ──▶ │  3. Síntese   │ ──▶ │  4. Entrega  │
+│  src/fetcher │      │  src/summarizer  │      │    src/tts    │      │   Discord    │
+└─────────────┘      └──────────────────┘      └──────────────┘      └─────────────┘
+  Hacker News +     Narrativa narrativa       MP3 com voz            Webhook envia
+  50 feeds RSS      educacional via LLM       humanizada             áudio + resumo
+```
+
+| Etapa | Módulo | Responsabilidade |
+|---|---|---|
+| **1. Coleta** | `fetcher.py` | Busca tendências no Hacker News e nos 50 feeds RSS curados, com deduplicação e balanço entre categorias. |
+| **2. Roteirização** | `summarizer.py` | Chama a LLM (Groq/DeepSeek) para gerar um texto corrido, jornalístico e didático, sem tópicos ou marcadores. |
+| **3. Síntese** | `tts.py` | Converte o roteiro em MP3 com pausas naturais; fallback em cascata: ElevenLabs → Edge-TTS → gTTS. |
+| **4. Entrega** | `discord_utils.py` | Envia o MP3 e o resumo para o Discord via webhook. |
+
+---
+
+## 🧩 Stack Tecnológica
+
+| Camada | Tecnologia |
+|---|---|
+| **Linguagem** | Python 3.10+ |
+| **Sources** | Hacker News API + RSS via `feedparser` |
+| **LLM** | Groq API (padrão `llama-3.3-70b-versatile`), compatível com DeepSeek |
+| **TTS** | Microsoft Edge-TTS (SSML), fallback gTTS, opcional ElevenLabs |
+| **Entrega** | Discord Webhook (`requests`) |
+| **CI/CD** | GitHub Actions (cron diário + lint/test) |
+| **Qualidade** | pytest · ruff |
+
+---
+
+## 📁 Estrutura do Projeto
+
+```
+.
 ├── src/
-│   ├── __init__.py      # Versão do pacote (Ex: 0.1.0)
-│   ├── sources.py       # Registro das 50 fontes curadas de tecnologia
-│   ├── fetcher.py       # Coleta inteligente e balanceada pelas 5 categorias
-│   ├── summarizer.py    # Geração de roteiro informativo + educacional (Groq/DeepSeek)
-│   ├── tts.py           # Síntese SSML de voz ultra-humanizada (Edge-TTS / gTTS)
-│   ├── discord_utils.py # Envio do áudio para o Discord via webhook
-│   └── main.py          # Script principal (CLI, --daily e --send-discord)
-├── tests/               # Testes unitários (pytest)
-├── output/              # Arquivos finais (.mp3 e .txt) salvos por data
-├── schedule_daily.ps1   # Agendador automático para Windows Task Scheduler
-├── .github/workflows/   # CI/CD: ci.yml (lint+test) e daily.yml (rotina diária)
-├── .env.example         # Modelo de variáveis de ambiente
-├── .gitignore           # Protege .env e artefatos gerados
-├── pyproject.toml       # Metadados, versão e dependências
-├── requirements.txt     # Dependências Python
-└── README.md            # Documentação completa
+│   ├── __init__.py        # Versão do pacote (SemVer)
+│   ├── sources.py         # Registrar das 50 fontes curadas
+│   ├── fetcher.py         # Etapa 1: coleta de notícias
+│   ├── summarizer.py      # Etapa 2: roteirização com LLM
+│   ├── tts.py             # Etapa 3: síntese de voz
+│   ├── discord_utils.py   # Etapa 4: entrega ao Discord
+│   └── main.py            # CLI, orquestração, --daily e --send-discord
+├── tests/                 # Testes unitários (pytest)
+├── .github/workflows/     # CI (lint+test) e rotina diária
+├── output/                # Áudios e roteiros gerados (ignorados pelo git)
+├── .env.example           # Modelo de variáveis de ambiente
+├── pyproject.toml         # Metadados, versão e dependências
+├── requirements.txt       # Dependências de runtime
+└── README.md
 ```
 
 ---
 
-## 🛠️ Instalação e Execução
+## 🚀 Começando
 
-### 1. Instalar Dependências
+### Pré-requisitos
+- Python 3.10+
+- Uma chave de API gratuita do [Groq Console](https://console.groq.com/keys)
+
+### 1. Clone e instale
 ```bash
+git clone <sua-url-do-repositorio>
+cd tendencias_tecnologia
 pip install -r requirements.txt
 ```
 
-### 2. Configurar `.env`
-Adicione sua chave de API gratuita do [Groq Console](https://console.groq.com/keys) no `.env`:
-
+### 2. Configure o ambiente
+```bash
+cp .env.example .env
+```
+Edite o `.env` com sua chave:
 ```env
 GROQ_API_KEY=gsk_SuaChaveGroqAqui
 GROQ_MODEL=llama-3.3-70b-versatile
-TTS_VOICE=pt-BR-AntonioNeural
-TTS_RATE=-1%
+TTS_VOICE=francisca
+TTS_RATE=-3%
 ```
 
-### 3. Rodar o Agente
-```bash
-python src/main.py
-```
+> O arquivo `.env` nunca deve ser versionado — ele fica protegido pelo `.gitignore`.
 
-### 4. Rodar em Modo Diário Automatizado
+### 3. Rode o agente
 ```bash
-python src/main.py --daily --schedule-time 08:00
-```
-Ou no Windows:
-```powershell
-.\schedule_daily.ps1
+python src/main.py --version        # confirma a versão
+python src/main.py                  # gera o digest de hoje
+python src/main.py --send-discord   # gera e envia para o Discord
 ```
 
 ---
 
-## 📨 Envio Diário para o Discord (Webhook)
+## 📨 Envio para o Discord
 
-O agente pode enviar o MP3 gerado diretamente para qualquer canal do Discord usando um **webhook** (sem precisar de bot ou permissões especiais). O áudio aparece inline e pode ser reproduzido na hora.
+O envio usa um **webhook**, o jeito mais simples e seguro de entregar o áudio em um canal — sem bot, sem permissões, sem custo.
 
-### 1. Criar um webhook no Discord
-1. Abra o canal desejado → **Configurações do Canal** (ícone de engrenagem).
-2. Vá em **Integrações → Webhooks → Novo Webhook**.
-3. Dê um nome (ex: "Tech Trends") e **Copiar URL do Webhook**.
+1. No Discord: abra o canal → **Configurações do Canal** → **Integrações** → **Webhooks** → **Novo Webhook**.
+2. Copie a URL e adicione ao `.env`:
+   ```env
+   DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxxxx/yyyyy
+   ```
+3. Gere e envie:
+   ```bash
+   python src/main.py --send-discord
+   ```
 
-### 2. Configurar
-Adicione a URL no `.env`:
-```env
-DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/xxxxx/yyyyy
-```
-
-### 3. Enviar o áudio
+Você também pode passar a URL diretamente no comando:
 ```bash
-python src/main.py --send-discord
-# ou informe a URL diretamente:
 python src/main.py --send-discord --discord-webhook "https://..."
 ```
 
-No GitHub Actions, a URL vai como um **Secret** (veja abaixo), não no `.env`.
-
 ---
 
-## 🤖 Execução Diária Automática via GitHub Actions
+## 🤖 Automação Diária (GitHub Actions)
 
-A rotina diária roda na nuvem (não depende do seu PC ficar ligado) e envia o áudio ao Discord:
+Sem depender do seu computador, o GitHub Actions gera e entrega o digest todos os dias.
 
-| Workflow | Arquivo | Quando roda |
-|---|---|---|
-| Rótina diária `generate-and-send` | `.github/workflows/daily.yml` | Todos os dias às `11:00 UTC` (≈ 08:00 em Brasília) + **acionamento manual** na aba *Actions* |
-| Qualidade `test` + `lint` | `.github/workflows/ci.yml` | Em todo `push` e `pull request` |
+| Workflow | Quando roda |
+|---|---|
+| **Rotina diária** — gera o áudio e envia ao Discord | Todos os dias `11:00 UTC` (≈ 08:00 em Brasília) + acionamento manual |
+| **Qualidade** — roda `pytest` (3 versões de Python) e `ruff` | Em todo `push` e `pull request` |
 
-### Configurar os Secrets do repositório
-No GitHub: **Settings → Secrets and variables → Actions → New repository secret**. Valor vazio em `.env` no CI não é um problema — as variáveis vêm daqui:
+### Configure os Secrets do repositório
+Em **Settings → Secrets and variables → Actions → New repository secret**:
 
-| Secret | Obligatório | Exemplo |
+| Secret | Obrigatório | Exemplo |
 |---|---|---|
 | `GROQ_API_KEY` | ✅ | `gsk_...` |
+| `DISCORD_WEBHOOK_URL` | ✅ | `https://discord.com/api/webhooks/...` |
 | `GROQ_MODEL` | ❌ (tem padrão) | `llama-3.3-70b-versatile` |
-| `DISCORD_WEBHOOK_URL` | ✅ (para o envio) | `https://discord.com/api/webhooks/...` |
 | `TTS_VOICE` | ❌ (tem padrão) | `francisca` |
 | `TTS_RATE` | ❌ (tem padrão) | `-3%` |
 
-> **Ajuste de horário:** o cron do `daily.yml` usa **UTC**. Para mudar o horário, edite a linha `cron` (ex: `0 8 * * *` = 08:00 UTC).
+> 💡 Bom saber: o cron do `daily.yml` usa **UTC**. Para outro horário, edite a linha `cron` (ex: `0 22 * * *` = 22:00 UTC).
 
 ---
 
-## 🏷️ Versionamento e Boas Práticas
+## 🏷️ Versionamento e Padrões
 
-O projeto segue **SemVer** (`MAJOR.MINOR.PATCH`) e **Conventional Commits**.
+O projeto adota **SemVer** (`MAJOR.MINOR.PATCH`) e **Conventional Commits**.
 
-- A versão atual está em **dois lugares sincronizados**:
-  - `pyproject.toml` → `[project] version = "0.1.0"`
-  - `src/__init__.py` → `__version__ = "0.1.0"`
-- Consulte a versão via CLI: `python src/main.py --version`.
+- A versão vive em dois pontos sincronizados: `pyproject.toml` e `src/__init__.py`.
+- Consulte via CLI: `python src/main.py --version`.
 
 ### Convenção de commits
 ```
 feat: adicionar envio para Discord via webhook
 fix: corrigir fallback do Edge-TTS
-chore: atualizar dependências
-tests: cobrir função de higienização do roteiro
+tests: cobrir higienização do roteiro
 docs: documentar secrets do GitHub Actions
+chore: atualizar dependências
 ```
 
-### Bump de versão
-1. Aumente `version` em `pyproject.toml` e `__version__` em `src/__init__.py`.
-2. Crie uma **tag** semântica para releases: `git tag v0.1.0 && git push origin v0.1.0`.
-3. (Opcional) gitignore já protege `.env`, `output/` e artefatos — rode testes antes de commitar:
-   ```bash
-   pip install -r requirements-dev.txt
-   python -m pytest        # testes
-   ruff check src tests    # lint
-   ```
+### Publicando uma release
+```bash
+git tag v0.2.0 && git push origin v0.2.0
+```
 
 ---
 
-## 🧪 Qualidade de Software (CI)
+## 🧪 Qualidade de Software
 
-O workflow `ci.yml` roda, em toda mudança, **testes em 3 versões de Python** (`pytest`) e **lint** (`ruff`). Para rodar localmente:
+Antes de qualquer mudança, rode a suíte localmente:
 ```bash
 pip install -r requirements-dev.txt
-python -m pytest
-ruff check src tests
+python -m pytest        # testes unitários
+ruff check src tests    # lint
 ```
+
+O workflow de CI (`ci.yml`) executa essas checagens automaticamente a cada mudança.
 
 ---
 
-## ⚠️ Segurança
+## 🔒 Segurança
 
-- O arquivo `.env` real está no `.gitignore` e **não deve ser commitado**.
-- Use apenas o `.env.example` como referência.
-- No GitHub, credenciais vão **sempre** como **Secrets**, nunca no código.
-- ⚠️ **Recomendação:** por já terem sido exibidos em logs, rotacione (gere novas) as chaves `GROQ_API_KEY` e `ELEVENLABS_API_KEY` no painel de cada provedor antes de publicar o repositório.
+- O `.env` real é ignorado pelo git e **nunca deve ser commitado**.
+- Use apenas o `.env.example` como modelo.
+- No GitHub, credenciais são gerenciadas **exclusivamente como Secrets**.
+- ⚠️ **Recomendação:** se as chaves (`GROQ_API_KEY`, `ELEVENLABS_API_KEY`) já apareceram em qualquer log, **rotacione-as** gerando novas no painel do provedor antes de publicar o repositório.
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Coleta de 50 fontes curadas
+- [x] Narrativa educacional via LLM
+- [x] Síntese de voz humanizada (Edge-TTS + fallbacks)
+- [x] Entrega diária no Discord via webhook
+- [x] CI/CD e versionamento semântico
+- [ ] Envio também como resumo em texto no Discord
+- [ ] Suporte a múltiplos horários por fuso
+- [ ] Dashboard de history/tendências dos episódios
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob a licença **MIT** — consulte o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+---
+
+<div align="center">
+Feito com 💜 para quem gosta de começar o dia bem informado.
+</div>
