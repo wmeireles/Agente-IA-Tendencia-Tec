@@ -3,11 +3,12 @@ Orquestrador Principal / CLI - Agente de Tendencias de Tecnologia e Audio Digest
 Suporta execucao avulsa ou modo continuo diário automatizado (--daily).
 """
 
-import sys
-import os
-import time
 import argparse
+import os
+import sys
+import time
 from datetime import datetime
+
 from dotenv import load_dotenv
 
 # Força codificação UTF-8 para evitar UnicodeEncodeError no terminal Windows
@@ -21,16 +22,16 @@ if sys.stdout.encoding != 'utf-8':
 # Adiciona o diretorio raiz ao sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
+from rich.table import Table
+
 from src import __version__
+from src.discord_utils import resolve_webhook_url, send_audio_to_webhook
 from src.fetcher import get_daily_tech_trends
 from src.summarizer import generate_podcast_script
 from src.tts import text_to_speech
-from src.discord_utils import resolve_webhook_url, send_audio_to_webhook
-
-from rich.console import Console
-from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-from rich.table import Table
 
 console = Console(force_terminal=True)
 
@@ -244,7 +245,7 @@ def main():
         import schedule
         console.print(f"[bold yellow]⏰ Modo Diário Ativado:[/bold yellow] O agente rodará todos os dias às [bold cyan]{args.schedule_time}[/bold cyan].")
         console.print("[dim]Executando a primeira rodada agora...[/dim]\n")
-        
+
         # Executa imediatamente no arranque
         run_pipeline(args)
 

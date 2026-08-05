@@ -3,14 +3,15 @@ Modulo de Coleta de Tendencias e Noticias de Tecnologia.
 Busca noticias recentes a partir de 50 fontes selecionadas (Hacker News API e Feeds RSS Curados).
 """
 
-import sys
-import os
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Any
 import logging
+import os
 import random
-import requests
+import sys
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
 import feedparser
+import requests
 
 # Adiciona o diretorio raiz ao sys.path para garantir importacoes corretas
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -23,7 +24,7 @@ HN_TOP_STORIES_URL = "https://hacker-news.firebaseio.com/v0/topstories.json"
 HN_ITEM_URL = "https://hacker-news.firebaseio.com/v0/item/{id}.json"
 
 
-def fetch_hacker_news(limit: int = 3, max_hours: int = 48) -> List[Dict[str, Any]]:
+def fetch_hacker_news(limit: int = 3, max_hours: int = 48) -> list[dict[str, Any]]:
     """
     Busca os principais topicos recentes do Hacker News via Firebase API.
     """
@@ -45,7 +46,7 @@ def fetch_hacker_news(limit: int = 3, max_hours: int = 48) -> List[Dict[str, Any
                     item = item_resp.json()
                     if not item or item.get("type") != "story":
                         continue
-                    
+
                     time_sec = item.get("time")
                     if time_sec:
                         pub_date = datetime.fromtimestamp(time_sec, tz=timezone.utc)
@@ -71,14 +72,13 @@ def fetch_hacker_news(limit: int = 3, max_hours: int = 48) -> List[Dict[str, Any
     return articles
 
 
-def fetch_curated_rss_feeds(target_count: int = 6, max_hours: int = 72) -> List[Dict[str, Any]]:
+def fetch_curated_rss_feeds(target_count: int = 6, max_hours: int = 72) -> list[dict[str, Any]]:
     """
     Coleta noticias recentes das 50 fontes curadas de tecnologia (Big Techs, Blogs de Arquitetura, IA e Conteudo BR).
     Embaralha as fontes dentro de cada categoria para garantir diversidade de conteudo a cada execucao.
     """
     articles = []
     now = datetime.now(timezone.utc)
-    cutoff_time = now - timedelta(hours=max_hours)
 
     categories = {}
     for source in CURATED_SOURCES:
@@ -135,7 +135,7 @@ def fetch_curated_rss_feeds(target_count: int = 6, max_hours: int = 72) -> List[
     return articles
 
 
-def get_daily_tech_trends(target_count: int = 6, max_hours: int = 72) -> List[Dict[str, Any]]:
+def get_daily_tech_trends(target_count: int = 6, max_hours: int = 72) -> list[dict[str, Any]]:
     """
     Orquestra a coleta de tendencias combinando Hacker News e as 50 fontes curadas de tecnologia.
     """

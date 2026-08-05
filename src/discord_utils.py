@@ -4,9 +4,8 @@ Envia o audio MP3 do dia (e o roteiro em texto) para qualquer canal do Discord
 usando um webhook, sem necessidade de bot ou permissoes especiais.
 """
 
-import os
 import logging
-from typing import Optional
+import os
 
 import requests
 
@@ -15,7 +14,7 @@ logger = logging.getLogger(__name__)
 DISCORD_MAX_MESSAGE_LEN = 2000
 
 
-def resolve_webhook_url(explicit: Optional[str] = None) -> Optional[str]:
+def resolve_webhook_url(explicit: str | None = None) -> str | None:
     """
     Retorna a URL do webhook: prioriza o argumento explicito, senão a env
     DISCORD_WEBHOOK_URL. Retorna None se nenhum estiver configurado.

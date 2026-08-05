@@ -4,10 +4,11 @@ Suporta Edge-TTS com vozes altamente expressivas (Francisca, Thalita Multilingua
 suporte nativo a ElevenLabs (estudio hyper-realista) e fallback automatico para gTTS.
 """
 
-import os
 import asyncio
 import logging
+import os
 from datetime import datetime
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -29,11 +30,11 @@ def get_edge_voice_name(voice_alias: str) -> str:
     alias_lower = voice_alias.lower().strip()
     if alias_lower in PODCAST_VOICES:
         return PODCAST_VOICES[alias_lower]
-        
+
     for name in PODCAST_VOICES.values():
         if alias_lower in name.lower():
             return name
-            
+
     return "pt-BR-FranciscaNeural"
 
 
@@ -43,12 +44,12 @@ def prepare_text_for_natural_pacing(text: str) -> str:
     """
     paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
     formatted_paragraphs = []
-    
+
     for p in paragraphs:
         if not p.endswith(('.', '!', '?', '...')):
             p += '.'
         formatted_paragraphs.append(p)
-        
+
     return '\n\n'.join(formatted_paragraphs)
 
 
@@ -58,7 +59,7 @@ async def generate_edge_tts(text: str, output_path: str, voice: str, rate: str =
 
     clean_text = prepare_text_for_natural_pacing(text)
     selected_voice = get_edge_voice_name(voice)
-    
+
     communicate = edge_tts.Communicate(clean_text, selected_voice, rate=rate)
     await communicate.save(output_path)
 
@@ -69,7 +70,7 @@ def generate_elevenlabs_tts(text: str, output_path: str, voice_id: str = "21m00T
     Requer ELEVENLABS_API_KEY no arquivo .env (Gratuito ate 10.000 caracteres/mes).
     """
     import requests
-    
+
     api_key = os.environ.get("ELEVENLABS_API_KEY")
     if not api_key:
         raise ValueError("ELEVENLABS_API_KEY não foi configurada no arquivo .env.")
@@ -140,13 +141,13 @@ async def text_to_speech_async(
     try:
         logger.info(f"Gerando áudio com Edge-TTS (Voz de Podcast: {edge_voice}, cadência: {rate})...")
         await asyncio.wait_for(generate_edge_tts(text, output_path, edge_voice, rate), timeout=30.0)
-        
+
         if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
             logger.info(f"Áudio gerado com sucesso via Edge-TTS ({edge_voice}): {output_path}")
             return output_path
         else:
             raise RuntimeError("O arquivo gerado ficou com 0 bytes.")
-            
+
     except Exception as e:
         logger.warning(f"Edge-TTS indisponível ({e}). Ativando fallback gTTS...")
         try:

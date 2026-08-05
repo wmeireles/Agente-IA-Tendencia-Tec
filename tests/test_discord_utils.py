@@ -1,5 +1,4 @@
 """Testes unitários para o módulo src/discord_utils."""
-import pytest
 
 from src.discord_utils import resolve_webhook_url, truncate_for_discord
 

@@ -43,3 +43,5 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP"]
+# E501: linhas longas são comuns em prosa/prompts e URLs; não bloqueiam a build.
+extend-ignore = ["E501"]

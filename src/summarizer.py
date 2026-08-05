@@ -3,9 +3,10 @@ Modulo de Processamento e Roteirizacao Profissional de Podcast (Groq / DeepSeek 
 Gera uma narrativa fluida, profunda e profissional em formato de monólogo narrativo (sem tópicos ou marcadores).
 """
 
-import os
-from typing import List, Dict, Any
 import logging
+import os
+from typing import Any
+
 from dotenv import load_dotenv
 from groq import Groq
 
@@ -33,7 +34,7 @@ DIRETRIZES FUNDAMENTAIS DE ESTILO E NARRATIVA:
 
 
 def generate_podcast_script(
-    articles: List[Dict[str, Any]],
+    articles: list[dict[str, Any]],
     api_key: str = None,
     model_name: str = None
 ) -> str:
@@ -114,7 +115,7 @@ def clean_script_for_tts(text: str) -> str:
     # Remove colchetes ou parenteses com instrucoes de palco
     text = re.sub(r'\[.*?\]', '', text)
     text = re.sub(r'\((?:risos|musica|pausa|vinheta|vinheta de abertura|efeito sonora?)\)', '', text, flags=re.IGNORECASE)
-    
+
     # Organiza em parágrafos bem espaçados para cadência de fala
     paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
     return '\n\n'.join(paragraphs)
