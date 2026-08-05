@@ -5,6 +5,7 @@ a rotina diaria do digest em uma thread em background.
 """
 
 import os
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -12,6 +13,8 @@ from types import SimpleNamespace
 
 from dotenv import load_dotenv
 import schedule
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.main import run_pipeline
 
