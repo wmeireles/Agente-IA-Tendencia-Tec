@@ -1,0 +1,65 @@
+"""Entry point para o Render Web Service.
+
+Mantem o processo vivo escutando em $PORT (exigencia do Render) e roda
+a rotina diaria do digest em uma thread em background.
+"""
+
+import os
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from types import SimpleNamespace
+
+from dotenv import load_dotenv
+import schedule
+
+from src.main import run_pipeline
+
+
+def build_args():
+    return SimpleNamespace(
+        output_dir=os.environ.get("OUTPUT_DIR", "output"),
+        count=int(os.environ.get("COUNT", "6")),
+        voice=os.environ.get("TTS_VOICE"),
+        rate=os.environ.get("TTS_RATE", "-3%"),
+        save_script=True,
+        send_discord=True,
+        discord_webhook=None,
+    )
+
+
+def schedule_loop():
+    load_dotenv()
+    schedule_time = os.environ.get("SCHEDULE_TIME", "08:00")
+    args = build_args()
+    run_pipeline(args)
+    schedule.every().day.at(schedule_time).do(run_pipeline, build_args())
+    while True:
+        schedule.run_pending()
+        time.sleep(30)
+
+
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b"OK")
+
+    def log_message(self, format, *args):
+        return
+
+
+def main():
+    load_dotenv()
+    port = int(os.environ.get("PORT", "8000"))
+
+    scheduler = threading.Thread(target=schedule_loop, daemon=True)
+    scheduler.start()
+
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    print(f"Serving health endpoint on port {port}")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
