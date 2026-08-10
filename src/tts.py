@@ -9,7 +9,6 @@ import logging
 import os
 import subprocess
 from datetime import datetime
-from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -37,13 +36,25 @@ DEFAULT_VOICE = os.environ.get("TTS_VOICE", "francisca")
 DEFAULT_RATE = os.environ.get("TTS_RATE", "-3%")  # Ritmo mais lento e cadenciado estilo podcast
 DEFAULT_KOKORO_SPEED = float(os.environ.get("KOKORO_SPEED", "0.98"))
 
+# Configs de memoria do Kokoro: modelo quantizado + sem retencao de audio por segmento
+# mantem o pico de RAM dentro do limite das instancias gratuitas do Render (512 MB).
+KOKORO_MODEL_QUALITY = os.environ.get("KOKORO_MODEL_QUALITY", "q8f16")
+KOKORO_PROVIDER = os.environ.get("KOKORO_PROVIDER", "cpu")
+TTS_ENGINE = os.environ.get("TTS_ENGINE", "kokoro").lower().strip()
+
 
 def _kokoro_pipeline(voice: str):
-    """Cria (ou reutiliza) o pipeline do Kokoro ONNX de forma lazily."""
-    import pykokoro
+    """Cria um pipeline Kokoro ONNX leve (quantizado) para uso descartavel."""
     from pykokoro import KokoroPipeline, PipelineConfig
 
-    return KokoroPipeline(PipelineConfig(voice=voice, provider="cpu"))
+    return KokoroPipeline(
+        PipelineConfig(
+            voice=voice,
+            provider=KOKORO_PROVIDER,
+            model_quality=KOKORO_MODEL_QUALITY,
+            retain_segment_audio=False,
+        )
+    )
 
 
 def get_kokoro_voice(voice_alias: str) -> str:
@@ -120,15 +131,17 @@ def generate_kokoro_tts(text: str, output_path: str, voice: str = DEFAULT_VOICE,
 
     kokoro_voice = get_kokoro_voice(voice)
     pipeline = _kokoro_pipeline(kokoro_voice)
-
-    result = pipeline.run(text)
+    result = None
     try:
+        result = pipeline.run(text)
         wav_tmp = os.path.splitext(output_path)[0] + ".tmp.wav"
         sf.write(wav_tmp, result.audio, result.sample_rate, subtype="PCM_16")
         convert_wav_to_mp3(wav_tmp, output_path)
         os.remove(wav_tmp)
     finally:
-        result.release_audio()
+        if result is not None:
+            result.release_audio()
+        pipeline.close()
 
     logger.info(f"Áudio gerado com Kokoro ({kokoro_voice}): {output_path}")
     return output_path
@@ -183,7 +196,7 @@ async def text_to_speech_async(
     output_path: str,
     voice: str = DEFAULT_VOICE,
     rate: str = DEFAULT_RATE,
-    speed: Optional[float] = None,
+    speed: float | None = None,
 ) -> str:
     """
     Converte o texto em MP3. Prioriza o Kokoro (voz humanizada pt-BR, gratis),
@@ -199,8 +212,11 @@ async def text_to_speech_async(
     loop = asyncio.get_running_loop()
 
     # 1. Motor primario: Kokoro (humanizado, gratuito, roda em CPU).
+    #    Com TTS_ENGINE=edge (ex.: instancias gratuitas do Render com 512 MB),
+    #    pula-se o carregamento local do modelo ONNX para reduzir o uso de RAM.
     kokoro_speed = speed if speed is not None else DEFAULT_KOKORO_SPEED
-    if voice.lower() != "edge" and voice.lower() != "elevenlabs":
+    engine_voice = voice.lower()
+    if TTS_ENGINE in ("kokoro", "auto") and engine_voice not in ("edge", "elevenlabs"):
         try:
             logger.info(f"Gerando áudio com Kokoro (voz pt-BR: {get_kokoro_voice(voice)})...")
             await loop.run_in_executor(None, generate_kokoro_tts, text, output_path, voice, kokoro_speed)
@@ -213,7 +229,7 @@ async def text_to_speech_async(
 
     # 2. Se o usuario configurou ElevenLabs no .env ou solicitou 'elevenlabs'
     elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY")
-    if voice.lower() == "elevenlabs" or (elevenlabs_key and voice.lower() != "edge"):
+    if TTS_ENGINE != "edge" and (voice.lower() == "elevenlabs" or (elevenlabs_key and voice.lower() != "edge")):
         try:
             logger.info("Gerando áudio com ElevenLabs (Qualidade Hyper-Realista de Estúdio)...")
             await loop.run_in_executor(None, generate_elevenlabs_tts, text, output_path)
@@ -252,7 +268,7 @@ def text_to_speech(
     voice: str = DEFAULT_VOICE,
     rate: str = DEFAULT_RATE,
     output_dir: str = "output",
-    speed: Optional[float] = None,
+    speed: float | None = None,
 ) -> str:
     """
     Wrapper sincrono para a conversao de texto em audio.
