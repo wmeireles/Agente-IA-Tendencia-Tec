@@ -40,7 +40,25 @@ DEFAULT_KOKORO_SPEED = float(os.environ.get("KOKORO_SPEED", "0.98"))
 # mantem o pico de RAM dentro do limite das instancias gratuitas do Render (512 MB).
 KOKORO_MODEL_QUALITY = os.environ.get("KOKORO_MODEL_QUALITY", "q8f16")
 KOKORO_PROVIDER = os.environ.get("KOKORO_PROVIDER", "cpu")
-TTS_ENGINE = os.environ.get("TTS_ENGINE", "kokoro").lower().strip()
+
+
+def _is_render():
+    """Detecta ambientes do Render pelas variaveis injetadas no servico."""
+    return bool(os.environ.get("RENDER_INSTANCE_ID") or os.environ.get("RENDER_SERVICE_ID"))
+
+
+def _default_tts_engine():
+    """Escolhe o motor TTS padrao: Edge-TTS no Render (sem modelo ONNX local),
+    Kokoro nos demais ambientes."""
+    explicit = os.environ.get("TTS_ENGINE")
+    if explicit:
+        return explicit.lower().strip()
+    if _is_render():
+        return "edge"
+    return "kokoro"
+
+
+TTS_ENGINE = _default_tts_engine()
 
 
 def _kokoro_pipeline(voice: str):
