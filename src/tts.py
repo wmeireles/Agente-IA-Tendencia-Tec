@@ -1,13 +1,15 @@
 """
 Modulo de Conversao de Texto em Audio (Multi-Engine TTS para Podcast).
-Suporta Edge-TTS com vozes altamente expressivas (Francisca, Thalita Multilingual),
-suporte nativo a ElevenLabs (estudio hyper-realista) e fallback automatico para gTTS.
+Usa Kokoro (mi_rg open-source, gratuito e humanizado) como motor primario,
+com suporte a ElevenLabs (estudio hyper-realista), Edge-TTS e fallback para gTTS.
 """
 
 import asyncio
 import logging
 import os
+import subprocess
 from datetime import datetime
+from typing import Optional
 
 from dotenv import load_dotenv
 
@@ -21,8 +23,38 @@ PODCAST_VOICES = {
     "antonio": "pt-BR-AntonioNeural",               # Voz masculina jornalistica
 }
 
-DEFAULT_VOICE = os.environ.get("TTS_VOICE", "pt-BR-FranciscaNeural")
-DEFAULT_RATE = os.environ.get("TTS_RATE", "-3%")  # Ritmo mais solto e cadenciado estilo podcast
+# Vozes do Kokoro disponiveis em portugues brasileiro (pf_ = feminina, pm_ = masculina).
+KOKORO_VOICES = {
+    "dora": "pf_dora",
+    "francisca": "pf_dora",   # alias legado -> melhor voz feminina pt-BR do Kokoro
+    "thalita": "pf_dora",
+    "alex": "pm_alex",
+    "antonio": "pm_alex",      # alias legado -> voz masculina pt-BR do Kokoro
+    "santa": "pm_santa",
+}
+
+DEFAULT_VOICE = os.environ.get("TTS_VOICE", "francisca")
+DEFAULT_RATE = os.environ.get("TTS_RATE", "-3%")  # Ritmo mais lento e cadenciado estilo podcast
+DEFAULT_KOKORO_SPEED = float(os.environ.get("KOKORO_SPEED", "0.98"))
+
+
+def _kokoro_pipeline(voice: str):
+    """Cria (ou reutiliza) o pipeline do Kokoro ONNX de forma lazily."""
+    import pykokoro
+    from pykokoro import KokoroPipeline, PipelineConfig
+
+    return KokoroPipeline(PipelineConfig(voice=voice, provider="cpu"))
+
+
+def get_kokoro_voice(voice_alias: str) -> str:
+    """Converte um apelido de voz para uma voz valida do Kokoro em pt-BR."""
+    alias_lower = (voice_alias or "").lower().strip()
+    if alias_lower in KOKORO_VOICES:
+        return KOKORO_VOICES[alias_lower]
+    # Tambem aceita ids completos do modelo.
+    if alias_lower.startswith(("pf_", "pm_")):
+        return alias_lower
+    return "pf_dora"
 
 
 def get_edge_voice_name(voice_alias: str) -> str:
@@ -62,6 +94,44 @@ async def generate_edge_tts(text: str, output_path: str, voice: str, rate: str =
 
     communicate = edge_tts.Communicate(clean_text, selected_voice, rate=rate)
     await communicate.save(output_path)
+
+
+def _ffmpeg_bin() -> str:
+    import imageio_ffmpeg
+
+    return imageio_ffmpeg.get_ffmpeg_exe()
+
+
+def convert_wav_to_mp3(wav_path: str, mp3_path: str) -> None:
+    """Converte um arquivo WAV para MP3 usando o binario estatico do ffmpeg (sem depender do sistema)."""
+    ffmpeg = _ffmpeg_bin()
+    cmd = [ffmpeg, "-y", "-i", wav_path, "-codec:a", "libmp3lame", "-q:a", "5", mp3_path]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Erro ao converter WAV para MP3: {result.stderr.strip() or result.stdout.strip()}")
+
+
+def generate_kokoro_tts(text: str, output_path: str, voice: str = DEFAULT_VOICE, speed: float = DEFAULT_KOKORO_SPEED) -> None:
+    """
+    Sintetiza audio com o Kokoro (mi_rg open-source, ONNX, CPU).
+    Gera WAV e converte para MP3 localmente, sem custo e com voz pt-BR humanizada.
+    """
+    import soundfile as sf
+
+    kokoro_voice = get_kokoro_voice(voice)
+    pipeline = _kokoro_pipeline(kokoro_voice)
+
+    result = pipeline.run(text)
+    try:
+        wav_tmp = os.path.splitext(output_path)[0] + ".tmp.wav"
+        sf.write(wav_tmp, result.audio, result.sample_rate, subtype="PCM_16")
+        convert_wav_to_mp3(wav_tmp, output_path)
+        os.remove(wav_tmp)
+    finally:
+        result.release_audio()
+
+    logger.info(f"Áudio gerado com Kokoro ({kokoro_voice}): {output_path}")
+    return output_path
 
 
 def generate_elevenlabs_tts(text: str, output_path: str, voice_id: str = "21m00Tcm4TlvDq8ikWAM") -> None:
@@ -112,10 +182,12 @@ async def text_to_speech_async(
     text: str,
     output_path: str,
     voice: str = DEFAULT_VOICE,
-    rate: str = DEFAULT_RATE
+    rate: str = DEFAULT_RATE,
+    speed: Optional[float] = None,
 ) -> str:
     """
-    Converte o texto em MP3. Tenta ElevenLabs se configurado, senao Edge-TTS (Francisca/Thalita), senao gTTS.
+    Converte o texto em MP3. Prioriza o Kokoro (voz humanizada pt-BR, gratis),
+    senao ElevenLabs (se configurado), senao Edge-TTS, senao gTTS.
     """
     if not text.strip():
         raise ValueError("O texto fornecido para síntese de voz está vazio.")
@@ -124,19 +196,33 @@ async def text_to_speech_async(
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    # 1. Se o usuario configurou ElevenLabs no .env ou solicitou 'elevenlabs'
+    loop = asyncio.get_running_loop()
+
+    # 1. Motor primario: Kokoro (humanizado, gratuito, roda em CPU).
+    kokoro_speed = speed if speed is not None else DEFAULT_KOKORO_SPEED
+    if voice.lower() != "edge" and voice.lower() != "elevenlabs":
+        try:
+            logger.info(f"Gerando áudio com Kokoro (voz pt-BR: {get_kokoro_voice(voice)})...")
+            await loop.run_in_executor(None, generate_kokoro_tts, text, output_path, voice, kokoro_speed)
+            if os.path.getsize(output_path) > 0:
+                logger.info(f"Áudio gerado com sucesso via Kokoro: {output_path}")
+                return output_path
+            raise RuntimeError("O arquivo gerado ficou com 0 bytes.")
+        except Exception as e:
+            logger.warning(f"Falha no Kokoro ({e}). Alternando para ElevenLabs/Edge-TTS...")
+
+    # 2. Se o usuario configurou ElevenLabs no .env ou solicitou 'elevenlabs'
     elevenlabs_key = os.environ.get("ELEVENLABS_API_KEY")
     if voice.lower() == "elevenlabs" or (elevenlabs_key and voice.lower() != "edge"):
         try:
             logger.info("Gerando áudio com ElevenLabs (Qualidade Hyper-Realista de Estúdio)...")
-            loop = asyncio.get_running_loop()
             await loop.run_in_executor(None, generate_elevenlabs_tts, text, output_path)
             logger.info(f"Áudio ElevenLabs gerado com sucesso: {output_path}")
             return output_path
         except Exception as e:
             logger.warning(f"Falha no ElevenLabs ({e}). Alternando para Edge-TTS...")
 
-    # 2. Sintese padrao Edge-TTS com vozes expressivas de podcast (Francisca / Thalita / Antonio)
+    # 3. Sintese padrao Edge-TTS com vozes expressivas de podcast (Francisca / Thalita / Antonio)
     edge_voice = get_edge_voice_name(voice)
     try:
         logger.info(f"Gerando áudio com Edge-TTS (Voz de Podcast: {edge_voice}, cadência: {rate})...")
@@ -165,7 +251,8 @@ def text_to_speech(
     output_path: str = None,
     voice: str = DEFAULT_VOICE,
     rate: str = DEFAULT_RATE,
-    output_dir: str = "output"
+    output_dir: str = "output",
+    speed: Optional[float] = None,
 ) -> str:
     """
     Wrapper sincrono para a conversao de texto em audio.
@@ -176,10 +263,10 @@ def text_to_speech(
         output_path = os.path.join(output_dir, output_filename)
 
     try:
-        asyncio.run(text_to_speech_async(text, output_path, voice, rate))
+        asyncio.run(text_to_speech_async(text, output_path, voice, rate, speed))
     except RuntimeError:
         loop = asyncio.get_event_loop()
-        loop.run_until_complete(text_to_speech_async(text, output_path, voice, rate))
+        loop.run_until_complete(text_to_speech_async(text, output_path, voice, rate, speed))
 
     return output_path
 
@@ -187,6 +274,7 @@ def text_to_speech(
 if __name__ == "__main__":
     test_text = (
         "Fala pessoal! Bem-vindos a mais uma edição do nosso podcast diário de tecnologia.\n\n"
+
         "Hoje temos análises profundas sobre arquitetura de software, inteligência artificial e novidades do mercado dev.\n\n"
         "Acompanhem a gente e até a próxima edição!"
     )

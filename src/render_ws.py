@@ -11,8 +11,8 @@ import time
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from types import SimpleNamespace
 
-from dotenv import load_dotenv
 import schedule
+from dotenv import load_dotenv
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -44,9 +44,19 @@ def schedule_loop():
 
 class HealthHandler(BaseHTTPRequestHandler):
     def do_GET(self):
+        self._send_ok(with_body=True)
+
+    def do_HEAD(self):
+        self._send_ok(with_body=False)
+
+    def _send_ok(self, with_body):
+        body = b"OK"
         self.send_response(200)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(b"OK")
+        if with_body:
+            self.wfile.write(body)
 
     def log_message(self, format, *args):
         return

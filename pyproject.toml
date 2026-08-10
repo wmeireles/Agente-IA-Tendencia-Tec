@@ -20,6 +20,9 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "rich>=13.7.0",
     "schedule>=1.2.0",
+    "pykokoro[cpu]>=0.7.0",
+    "soundfile>=0.12.1",
+    "imageio-ffmpeg>=0.4.9",
 ]
 
 [project.optional-dependencies]
