@@ -177,6 +177,40 @@ Em **Settings → Secrets and variables → Actions → New repository secret**:
 
 ---
 
+## Diagnóstico no Render
+
+O endereço público é um monitor do processo que gera o podcast, não uma interface de chat.
+Um HTTP 200 sozinho não confirma que o áudio foi gerado ou entregue ao Discord.
+
+Configure o **Start Command** como `python -u -m src.render_ws` e o **Health Check Path**
+como `/healthz`. Use `TTS_ENGINE=edge` para evitar carregar o modelo local no Render.
+Configure `GROQ_API_KEY` e `DISCORD_WEBHOOK_URL` no painel **Environment**.
+
+Após publicar esta versão:
+
+- `/` e `/status` mostram o estado da execução, horários em UTC, código de saída e próximo ciclo.
+- `/healthz` verifica somente se o servidor HTTP está vivo. Uma falha do podcast não causa
+  reinícios automáticos que poderiam repetir envios.
+- Os logs do pipeline aparecem durante a execução. Uma mensagem a cada 30 segundos
+  confirma que o supervisor ainda está aguardando o processo.
+- `PIPELINE_TIMEOUT=1800` limita cada execução a 30 minutos.
+- `SCHEDULE_TIME=11:00` agenda 08:00 de Brasília **quando o servidor usa UTC**, como no Render.
+  O padrão é `08:00` no horário local do servidor. O horário aparece nos logs.
+- `RUN_ON_STARTUP=true` executa ao iniciar; use `false` para aguardar o próximo horário.
+  Reinícios com essa opção ativa podem gerar e enviar outro episódio no mesmo dia.
+
+**Render gratuito:** o serviço é suspenso após 15 minutos sem tráfego de entrada;
+o agendador Python não roda enquanto ele está suspenso. Portanto, esse processo não
+garante a entrega diária nesse plano. Veja as [limitações oficiais](https://render.com/docs/free).
+O workflow `.github/workflows/daily.yml` já oferece execução diária independente do
+servidor: configure os Secrets descritos acima e valide com **Actions → Daily → Run workflow**.
+Escolha apenas um agendador para evitar envios duplicados. O GitHub Actions também pode
+atrasar execuções agendadas; não trate o cron como garantia de horário exato.
+
+O status fica em memória e é reiniciado a cada deploy/restart. Os arquivos de áudio no
+Render também são temporários sem armazenamento persistente. Para investigar um episódio,
+consulte os logs desde o início da execução e o código de saída informado em `/status`.
+
 ## 🏷️ Versionamento e Padrões
 
 O projeto adota **SemVer** (`MAJOR.MINOR.PATCH`) e **Conventional Commits**.

@@ -4,6 +4,7 @@ Suporta execucao avulsa ou modo continuo diário automatizado (--daily).
 """
 
 import argparse
+import logging
 import os
 import sys
 import time
@@ -33,7 +34,8 @@ from src.fetcher import get_daily_tech_trends
 from src.summarizer import generate_podcast_script
 from src.tts import text_to_speech
 
-console = Console(force_terminal=True)
+console = Console()
+logger = logging.getLogger(__name__)
 
 
 def parse_args():
@@ -131,6 +133,7 @@ def run_pipeline(args):
     ) as progress:
 
         # Etapa 1: Coleta de noticias
+        logger.info("Etapa 1/4: coletando noticias.")
         task1 = progress.add_task("[bold yellow]1. Coletando tendências do mercado de tecnologia...[/bold yellow]", total=1)
         try:
             articles = get_daily_tech_trends(target_count=args.count)
@@ -145,6 +148,7 @@ def run_pipeline(args):
             return False
 
         # Etapa 2: Geracao do Roteiro Informativo + Educacional
+        logger.info("Etapa 2/4: gerando roteiro.")
         model_name = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
         task2 = progress.add_task(f"[bold yellow]2. Criando narrativa profissional via Groq ({model_name})...[/bold yellow]", total=1)
         try:
@@ -156,6 +160,7 @@ def run_pipeline(args):
             return False
 
         # Etapa 3: Sintese de Voz em Audio MP3 Ultra-Humanizada
+        logger.info("Etapa 3/4: sintetizando audio.")
         voice_name = args.voice or os.environ.get("TTS_VOICE", "francisca")
         task3 = progress.add_task(f"[bold yellow]3. Sintetizando voz de podcast ({voice_name})...[/bold yellow]", total=1)
         try:
@@ -173,6 +178,7 @@ def run_pipeline(args):
 
     # Envia o áudio para o Discord via webhook, se solicitado
     if args.send_discord:
+        logger.info("Etapa 4/4: enviando audio ao Discord.")
         webhook_url = resolve_webhook_url(args.discord_webhook)
         if not webhook_url:
             console.print("[bold red]❌ Erro:[/bold red] --send-discord foi usado, mas nenhum webhook do Discord está configurado.\n[cyan]Defina DISCORD_WEBHOOK_URL no .env ou passe --discord-webhook <url>.[/cyan]")
@@ -228,6 +234,7 @@ def run_pipeline(args):
 
 
 def main():
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     load_dotenv()
     args = parse_args()
 
@@ -262,7 +269,7 @@ def main():
             sys.exit(0)
     else:
         # Execucao avulsa única
-        run_pipeline(args)
+        sys.exit(0 if run_pipeline(args) else 1)
 
 
 if __name__ == "__main__":
